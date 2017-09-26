@@ -1,58 +1,55 @@
-"""Basic word2vec example."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import collections
-import math
-import os
 import random
-import zipfile
 
 import numpy as np
-from six.moves import urllib
-from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 
-# Step 1: Download the data.
-url = 'http://mattmahoney.net/dc/'
+from six.moves import xrange
+import pickle
 
-# def maybe_download(filename, expected_bytes):
-#     """Download a file if not present, and make sure it's the right size."""
-#     if not os.path.exists(filename):
-#         filename, _ = urllib.request.urlretrieve(url + filename, filename)
-#     statinfo = os.stat(filename)
-#     if statinfo.st_size == expected_bytes:
-#         print('Found and verified', filename)
-#     else:
-#         print(statinfo.st_size)
-#         raise Exception(
-#             'Failed to verify ' + filename + '. Can you get to it with a browser?')
-#     return filename
+SOURCE_MSG = "./data/source/msg.txt"
+SOURCE_SPAM = "./data/source/spam.txt"
 
 
-filename = "./data/text8.zip"
+class Email:
+    def __init__(self, subject, content, is_spam):
+        self.subject = subject
+        self.content = content
+        self.is_spam = is_spam
 
 
-# Read the data into a list of strings.
-def read_data(filename):
-    """Extract the first file enclosed in a zip file as a list of words."""
-    with zipfile.ZipFile(filename) as f:
-        data = tf.compat.as_str(f.read(f.namelist()[0])).split()
+def extract_email() -> list:
+    result = []
+    with open(SOURCE_MSG) as f:
+        lines = f.readlines()
+        for i in range(0, len(lines), 2):
+            result.append(Email(lines[i], lines[i + 1], False))
+
+    with open(SOURCE_SPAM) as f:
+        lines = f.readlines()
+        for i in range(0, len(lines), 2):
+            result.append(Email(lines[i], lines[i + 1], True))
+
+    return result
+
+
+def read_data(emails: list):
+    data = []
+    for email in emails:
+        data.extend(email.content.split())
     return data
 
 
-vocabulary = read_data(filename)
-print('Data size', len(vocabulary))
+vocabulary = read_data(extract_email())
+print("Data size", len(vocabulary))
 
 # Step 2: Build the dictionary and replace rare words with UNK token.
-vocabulary_size = 50000
+vocabulary_size = 10000
 
 
 def build_dataset(words, n_words):
-    """Process raw inputs into a dataset."""
-    count = [['UNK', -1]]
+    words = list(filter(lambda x: x.isalpha(), words))
+    count = [["UNK", -1]]
     count.extend(collections.Counter(words).most_common(n_words - 1))
     dictionary = dict()
     for word, _ in count:
@@ -73,6 +70,7 @@ def build_dataset(words, n_words):
 
 data, count, dictionary, reverse_dictionary = build_dataset(vocabulary,
                                                             vocabulary_size)
+
 del vocabulary  # Hint to reduce memory.
 print('Most common words (+UNK)', count[:5])
 print('Sample data', data[:10], [reverse_dictionary[i] for i in data[:10]])
@@ -103,7 +101,8 @@ def generate_batch(batch_size, num_skips, skip_window):
             batch[i * num_skips + j] = buffer[skip_window]
             labels[i * num_skips + j, 0] = buffer[target]
         if data_index == len(data):
-            buffer[:] = data[:span]
+            buffer = collections.deque(maxlen=span)
+            buffer.extend(data[:span])
             data_index = span
         else:
             buffer.append(data[data_index])
@@ -151,7 +150,7 @@ with graph.as_default():
         # Construct the variables for the NCE loss
         nce_weights = tf.Variable(
             tf.truncated_normal([vocabulary_size, embedding_size],
-                                stddev=1.0 / math.sqrt(embedding_size)))
+                                stddev=1.0 / np.math.sqrt(embedding_size)))
         nce_biases = tf.Variable(tf.zeros([vocabulary_size]))
 
     # Compute the average NCE loss for the batch.
@@ -209,19 +208,22 @@ with tf.Session(graph=graph) as session:
         if step % 10000 == 0:
             sim = similarity.eval()
             for i in xrange(valid_size):
-                valid_word_index = valid_examples[i]
+                valid_word = reverse_dictionary[valid_examples[i]]
                 top_k = 8  # number of nearest neighbors
                 nearest = (-sim[i, :]).argsort()[1:top_k + 1]
-                log_str = 'Nearest to %s:' % valid_word_index
+                log_str = 'Nearest to %s:' % valid_word
                 for k in xrange(top_k):
-                    close_word_index = nearest[k]
-                    log_str = '%s %s,' % (log_str, close_word_index)
+                    close_word = reverse_dictionary[nearest[k]]
+                    log_str = '%s %s,' % (log_str, close_word)
                 print(log_str)
     final_embeddings = normalized_embeddings.eval()
+    final_embeddings = np.asarray(final_embeddings)
+    with open('./data/source/dictionary.pkl', 'wb') as f:
+        pickle.dump(dictionary, f, pickle.DEFAULT_PROTOCOL)
+    np.savetxt("./data/source/word_embeddings.csv", final_embeddings, delimiter=",")
 
 
 # Step 6: Visualize the embeddings.
-
 
 def plot_with_labels(low_dim_embs, labels, filename='tsne.png'):
     assert low_dim_embs.shape[0] >= len(labels), 'More labels than embeddings'
@@ -237,7 +239,6 @@ def plot_with_labels(low_dim_embs, labels, filename='tsne.png'):
                      va='bottom')
 
     plt.savefig(filename)
-
 
 try:
     # pylint: disable=g-import-not-at-top
