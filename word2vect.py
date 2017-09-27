@@ -1,5 +1,6 @@
 import collections
 import random
+import zipfile
 
 import numpy as np
 import tensorflow as tf
@@ -7,8 +8,8 @@ import tensorflow as tf
 from six.moves import xrange
 import pickle
 
-SOURCE_MSG = "./data/source/msg.txt"
-SOURCE_SPAM = "./data/source/spam.txt"
+SOURCE_MSG = "./data/text/msg.txt"
+SOURCE_SPAM = "./data/text/spam.txt"
 
 
 class Email:
@@ -33,19 +34,22 @@ def extract_email() -> list:
     return result
 
 
-def read_data(emails: list):
-    data = []
-    for email in emails:
-        data.extend(email.content.split())
+filename = "./data/text8.zip"
+
+
+# Read the data into a list of strings.
+def read_data(filename):
+    """Extract the first file enclosed in a zip file as a list of words."""
+    with zipfile.ZipFile(filename) as f:
+        data = tf.compat.as_str(f.read(f.namelist()[0])).split()
     return data
 
 
-vocabulary = read_data(extract_email())
-print("Data size", len(vocabulary))
+vocabulary = read_data(filename)
+print('Data size', len(vocabulary))
 
 # Step 2: Build the dictionary and replace rare words with UNK token.
-vocabulary_size = 10000
-
+vocabulary_size = 50000
 
 def build_dataset(words, n_words):
     words = list(filter(lambda x: x.isalpha(), words))
@@ -239,6 +243,7 @@ def plot_with_labels(low_dim_embs, labels, filename='tsne.png'):
                      va='bottom')
 
     plt.savefig(filename)
+
 
 try:
     # pylint: disable=g-import-not-at-top

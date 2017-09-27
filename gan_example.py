@@ -1,6 +1,16 @@
 import tensorflow as tf
+import numpy as np
+from tensorflow.examples.tutorials.mnist import input_data
+
+X_dim = 784
+Z_dim = 100
+h_dim = 128
+mb_size = 32
+mnist = input_data.read_data_sets('./data/MNIST_data', one_hot=True)
 
 # Discriminator Net
+
+
 with tf.name_scope('input'):
     X = tf.placeholder(tf.float32, shape=[None, 784], name='X')
 
@@ -15,7 +25,7 @@ theta_D = [D_W1, D_W2, D_b1, D_b2]
 
 # Generator Net
 with tf.name_scope('input'):
-    Z = tf.placeholder(tf.float32, shape=[None, 100], name='Z')
+    Z = tf.placeholder(tf.float32, shape=[None, 100], name='Z')  # 100-dimension noise
 
 with tf.name_scope('generator'):
     G_W1 = tf.Variable(tf.zeros(shape=[100, 128]), name='G_W1')
@@ -61,5 +71,22 @@ with tf.name_scope('G_train'):
     G_solver = tf.train.AdamOptimizer().minimize(G_loss, var_list=theta_G)
 
 sess = tf.Session()
+sess.run(tf.global_variables_initializer())
 
-tf.summary.FileWriter('log/', sess.graph)
+
+def sample_Z(m, n):
+    '''Uniform prior for G(Z)'''
+    return np.random.uniform(-1., 1., size=[m, n])
+
+
+i = 0
+
+for it in range(10000):
+    X_mb, _ = mnist.train.next_batch(mb_size)
+
+    _, D_loss_curr = sess.run([D_solver, D_loss], feed_dict={X: X_mb, Z: sample_Z(mb_size, Z_dim)})
+    _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: sample_Z(mb_size, Z_dim)})
+
+    if it % 1000 == 0:
+        print(sess.run(theta_D))
+        print(sess.run(theta_G))
