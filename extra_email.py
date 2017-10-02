@@ -6,6 +6,8 @@ import collections
 
 import numpy as np
 
+embedding_size = 32
+
 
 def read_data():
     with open("./data/source/dictionary.pkl", "rb") as f:
@@ -19,7 +21,7 @@ def read_data():
 def email2vec(content, dictionary, word_embeddings, n_words):
     words = content.split()
     words = list(filter(lambda x: x.isalpha() and len(x) > 1, words))
-    vector = np.empty((0, 128))
+    vector = np.empty((0, embedding_size))
     count = [['UNK', -1]]
     count.extend(collections.Counter(words).most_common())
     i = 0
@@ -62,7 +64,7 @@ def extract_email(dictionary, word_embeddings, n_words) -> list:
     return result
 
 
-N_WORDS = 64
+N_WORDS = 16
 
 dictionary, word_embeddings = read_data()
 
