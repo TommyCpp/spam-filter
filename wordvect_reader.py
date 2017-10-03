@@ -3,6 +3,10 @@ import collections
 import tensorflow as tf
 import numpy as np
 
+"""
+Use to read word2vec result from the file.
+"""
+
 with open("./data/source/dictionary.pkl", "rb") as f:
     dictionary = pickle.load(f)
 

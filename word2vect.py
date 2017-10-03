@@ -11,6 +11,10 @@ import pickle
 SOURCE_MSG = "./data/text/msg.txt"
 SOURCE_SPAM = "./data/text/spam.txt"
 
+"""
+Use to extra word embeddings. 
+"""
+
 
 class Email:
     def __init__(self, subject, content, is_spam):
@@ -50,6 +54,7 @@ print('Data size', len(vocabulary))
 
 # Step 2: Build the dictionary and replace rare words with UNK token.
 vocabulary_size = 50000
+
 
 def build_dataset(words, n_words):
     words = list(filter(lambda x: x.isalpha(), words))
@@ -124,7 +129,7 @@ for i in range(8):
 # Step 4: Build and train a skip-gram model.
 
 batch_size = 128
-embedding_size = 32 # Dimension of the embedding vector.
+embedding_size = 32  # Dimension of the embedding vector.
 skip_window = 1  # How many words to consider left and right.
 num_skips = 2  # How many times to reuse an input to generate a label.
 
