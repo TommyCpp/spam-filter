@@ -42,6 +42,7 @@ def generator(z):
         G_h1 = tf.nn.relu(tf.matmul(z, G_W1) + G_b1)
         G_log_prob = tf.matmul(G_h1, G_W2) + G_b2
         G_prob = tf.nn.sigmoid(G_log_prob)
+        # todo: maybe change the sigmoid
 
         return G_prob
 
@@ -51,6 +52,7 @@ def discriminator(x):
         D_h1 = tf.nn.relu(tf.matmul(x, D_W1) + D_b1)
         D_logit = tf.matmul(D_h1, D_W2) + D_b2
         D_prob = tf.nn.sigmoid(D_logit)
+        # todo: maybe use the softmax instead of sigmoid
 
         return D_prob, D_logit
 
