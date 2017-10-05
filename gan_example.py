@@ -8,6 +8,13 @@ h_dim = 128
 mb_size = 32
 mnist = input_data.read_data_sets('./data/MNIST_data', one_hot=True)
 
+# initializer
+def xavier_init(size):
+    in_dim = size[0]
+    xavier_stddev = 1. / tf.sqrt(in_dim / 2.)
+    return tf.random_normal(shape=size, stddev=xavier_stddev)
+
+
 # Discriminator Net
 
 
@@ -15,10 +22,10 @@ with tf.name_scope('input'):
     X = tf.placeholder(tf.float32, shape=[None, 784], name='X')
 
 with tf.name_scope('discriminator'):
-    D_W1 = tf.Variable(tf.zeros(shape=[784, 128]), name='D_W1')
+    D_W1 = tf.Variable(xavier_init([784, 128]), name='D_W1')
     D_b1 = tf.Variable(tf.zeros(shape=[128]), name='D_b1')
 
-    D_W2 = tf.Variable(tf.zeros(shape=[128, 1]), name='D_W2')
+    D_W2 = tf.Variable(xavier_init([128, 1]), name='D_W2')
     D_b2 = tf.Variable(tf.zeros(shape=[1]), name='D_b2')
 
 theta_D = [D_W1, D_W2, D_b1, D_b2]
@@ -28,10 +35,10 @@ with tf.name_scope('input'):
     Z = tf.placeholder(tf.float32, shape=[None, 100], name='Z')  # 100-dimension noise
 
 with tf.name_scope('generator'):
-    G_W1 = tf.Variable(tf.zeros(shape=[100, 128]), name='G_W1')
+    G_W1 = tf.Variable(xavier_init([100, 128]), name='G_W1')
     G_b1 = tf.Variable(tf.zeros(shape=[128]), name='G_b1')
 
-    G_W2 = tf.Variable(tf.zeros(shape=[128, 784]), name='G_W2')
+    G_W2 = tf.Variable(xavier_init([128,784]), name='G_W2')
     G_b2 = tf.Variable(tf.zeros(shape=[784]), name='G_b2')
 
 theta_G = [G_W1, G_W2, G_b1, G_b2]
@@ -42,7 +49,6 @@ def generator(z):
         G_h1 = tf.nn.relu(tf.matmul(z, G_W1) + G_b1)
         G_log_prob = tf.matmul(G_h1, G_W2) + G_b2
         G_prob = tf.nn.sigmoid(G_log_prob)
-        # todo: maybe change the sigmoid
 
         return G_prob
 
@@ -52,7 +58,6 @@ def discriminator(x):
         D_h1 = tf.nn.relu(tf.matmul(x, D_W1) + D_b1)
         D_logit = tf.matmul(D_h1, D_W2) + D_b2
         D_prob = tf.nn.sigmoid(D_logit)
-        # todo: maybe use the softmax instead of sigmoid
 
         return D_prob, D_logit
 
@@ -90,5 +95,7 @@ for it in range(10000):
     _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: sample_Z(mb_size, Z_dim)})
 
     if it % 1000 == 0:
-        print(sess.run(theta_D))
-        print(sess.run(theta_G))
+        print('Iter: {}'.format(it))
+        print('D loss: {:.4}'. format(D_loss_curr))
+        print('G_loss: {:.4}'.format(G_loss_curr))
+        print()

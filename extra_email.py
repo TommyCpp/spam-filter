@@ -3,6 +3,7 @@ Extra email based on word2vec result
 """
 import pickle
 import collections
+import random
 
 import numpy as np
 
@@ -53,15 +54,24 @@ def extract_email(dictionary, word_embeddings, n_words) -> list:
         lines = f.readlines()
         for i in range(0, len(lines), 2):
             result.append(
-                Email(lines[i], lines[i + 1], email2vec(lines[i + 1], dictionary, word_embeddings, n_words), False))
+                Email(lines[i], lines[i + 1], email2vec(lines[i + 1], dictionary, word_embeddings, n_words), 0))
 
     with open(SOURCE_SPAM) as f:
         lines = f.readlines()
         for i in range(0, len(lines), 2):
             result.append(
-                Email(lines[i], lines[i + 1], email2vec(lines[i + 1], dictionary, word_embeddings, n_words), True))
+                Email(lines[i], lines[i + 1], email2vec(lines[i + 1], dictionary, word_embeddings, n_words), 1))
 
+    random.shuffle(result)  # shuffle the result
     return result
+
+
+def batch(emails: list, batch_size):
+    emails = random.shuffle(emails)
+    for i in range(0, len(emails), batch_size):
+        batch = emails[i, i + batch_size if batch_size > len(emails) else len(emails) - batch_size]
+        label = [email.is_spam for email in batch]
+        yield batch, label
 
 
 N_WORDS = 16
@@ -70,4 +80,3 @@ dictionary, word_embeddings = read_data()
 
 emails = extract_email(dictionary, word_embeddings, N_WORDS)
 
-print(emails[0].vector)
