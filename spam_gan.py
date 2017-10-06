@@ -22,9 +22,9 @@ class BatchManager:
         self.label = list()
         for email in self.emails:
             if email.is_spam:
-                self.label.append([0, 1])
+                self.label.append([0, 1,0])
             else:
-                self.label.append([1, 0])
+                self.label.append([1, 0,0])
 
     def next_batch(self, batch_size):
         if batch_size + self.index >= len(self.content):
@@ -66,7 +66,7 @@ def xavier_init(size):
 
 # Example generator
 def sample_Z(m, n):
-    radius = 1
+    radius = 0.1
     return np.random.uniform(-radius, radius, size=[m, n])
 
 
@@ -75,7 +75,7 @@ def sample_Z(m, n):
 
 with tf.name_scope('input'):
     X = tf.placeholder(tf.float32, shape=[batch_size, X_dim], name='X')
-    Y = tf.placeholder(tf.float32, shape=[batch_size, 2], name="Y")
+    Y = tf.placeholder(tf.float32, shape=[batch_size, 3], name="Y")
 
 with tf.name_scope('discriminator'):
     D_W1 = tf.Variable(xavier_init([X_dim, H_dim]), name='D_W1')
@@ -106,7 +106,7 @@ def generator(z):
         G_h1 = tf.nn.relu(tf.matmul(z, G_W1) + G_b1)
         # G_h1 = tf.Print(G_h1,data=[G_W1],summarize=20)
         G_log_prob = tf.matmul(G_h1, G_W2) + G_b2
-        G_example = tf.nn.sigmoid(G_log_prob)
+        G_example = G_log_prob
 
         # G_example = tf.Print(G_example,data=[G_example],summarize=batch_size*N_WORDS*embedding_size,first_n=3)
 
@@ -117,7 +117,7 @@ def discriminator(x):
     with tf.name_scope('discriminator'):
         D_h1 = tf.nn.relu(tf.matmul(x, D_W1) + D_b1)
         D_logit = tf.matmul(D_h1, D_W2) + D_b2
-        D_prob = tf.nn.softmax(tf.nn.sigmoid(D_logit))
+        D_prob = tf.nn.softmax(D_logit)
         # D_prob = tf.Print(D_prob, data=[], summarize=20)
 
         return D_prob, D_logit
@@ -128,8 +128,8 @@ with tf.name_scope('D_loss'):
     # G_sample = tf.Print(G_sample,data=[G_sample[:1,64:128]],summarize=20,message="sample:")
     D_real, D_logit_real = discriminator(X)
     D_fake, D_logit_fake = discriminator(G_sample)
-    D_real_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=Y, logits=D_logit_real[:, :-1]))
-    D_loss = tf.reduce_mean(D_real_loss + (1. - D_fake[:, -1:]))
+    D_real_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=Y, logits=D_logit_real))
+    D_loss = tf.reduce_mean(D_real_loss + (1. - D_fake[:, -1]))
     # D_loss = tf.Print(D_loss, data=[D_real], summarize=20, message="D_real:")
     # D_loss = tf.Print(D_loss, data=[D_fake], summarize=20, message="D_fake:")
     tf.summary.scalar("D_loss", D_loss)
@@ -141,16 +141,16 @@ with tf.name_scope('D_loss'):
     # D_loss = tf.Print(D_loss,data=[D_loss],summarize=20)
 
 with tf.name_scope('G_loss'):
-    G_loss = tf.reduce_mean(D_fake[:, -1:])
+    G_loss = tf.reduce_mean(D_fake[:, -1])
     # G_loss = tf.Print(G_loss, data=[G_loss], summarize=20, message="G:")
     tf.summary.scalar("G_loss", G_loss)
 
 # Only update D(X)'s parameters, so var_list = theta_D
 with tf.name_scope('D_train'):
-    D_solver = tf.train.AdamOptimizer(learning_rate=0.1).minimize(D_loss, var_list=theta_D)
+    D_solver = tf.train.AdamOptimizer(learning_rate=0.001).minimize(D_loss, var_list=theta_D)
 # Only update G(X)'s parameters, so var_list = theta_G
 with tf.name_scope('G_train'):
-    G_solver = tf.train.AdamOptimizer(learning_rate=0.1).minimize(G_loss, var_list=theta_G)
+    G_solver = tf.train.AdamOptimizer(learning_rate=0.001).minimize(G_loss, var_list=theta_G)
 
 i = 0
 dictionary, word_embeddings = read_data()
@@ -163,7 +163,7 @@ sess.run(tf.global_variables_initializer())
 merged = tf.summary.merge_all()
 writer = tf.summary.FileWriter("log/spam-filter")
 
-for it in range(1000):
+for it in range(10000):
     x_mb, y_mb = batch_manager.next_batch(batch_size)
     _, D_loss_curr, summary = sess.run([D_solver, D_loss, merged],
                                        feed_dict={X: x_mb, Y: y_mb, Z: sample_Z(batch_size, Z_dim)})
@@ -174,8 +174,8 @@ for it in range(1000):
 
 
 
-    if it % 1 == 0:
-        print('Iter: {}'.format(it))
-        print('D loss: {:.4}'.format(D_loss_curr))
-        print('G_loss: {:.4}'.format(G_loss_curr))
-        print()
+    # if it % 1 == 0:
+    #     print('Iter: {}'.format(it))
+    #     print('D loss: {:.4}'.format(D_loss_curr))
+    #     print('G_loss: {:.4}'.format(G_loss_curr))
+    #     print()
