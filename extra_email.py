@@ -21,7 +21,7 @@ def read_data():
 
 def email2vec(content, dictionary, word_embeddings, n_words):
     words = content.split()
-    words = list(filter(lambda x: x.isalpha() and len(x) > 1, words))
+    words = list(filter(lambda x: x.isalpha() and len(x) > 2, words))
     vector = np.empty((0, embedding_size))
     count = [['UNK', -1]]
     count.extend(collections.Counter(words).most_common())

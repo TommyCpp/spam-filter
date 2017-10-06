@@ -1,3 +1,4 @@
+# coding=utf-8
 # read data
 from extra_email import *
 import tensorflow as tf
@@ -12,9 +13,14 @@ N_WORDS = 8
 class BatchManager:
     def __init__(self, emails: list):
         self.index = 0
-        self.content = [email.vector for email in emails]
+        self.emails = emails
+        self.__extra_from_email()  # random the email
+
+    def __extra_from_email(self):
+        random.shuffle(self.emails)
+        self.content = [email.vector for email in self.emails]
         self.label = list()
-        for email in emails:
+        for email in self.emails:
             if email.is_spam:
                 self.label.append([0, 1])
             else:
@@ -25,6 +31,7 @@ class BatchManager:
             remain = batch_size + self.index - len(self.content)
             content_result = list(self.content[self.index:])
             label_result = list(self.label[self.index:])
+            self.__extra_from_email()  # random the email
             self.index = remain
             content_result.extend(self.content[:self.index])
             label_result.extend(self.label[:self.index])
@@ -97,7 +104,7 @@ def generator(z):
     with tf.name_scope('generator'):
         # z = tf.Print(z,data=[z],summarize=20,first_n=3)
         G_h1 = tf.nn.relu(tf.matmul(z, G_W1) + G_b1)
-        G_h1 = tf.Print(G_h1,data=[G_W1],summarize=20)
+        # G_h1 = tf.Print(G_h1,data=[G_W1],summarize=20)
         G_log_prob = tf.matmul(G_h1, G_W2) + G_b2
         G_example = tf.nn.sigmoid(G_log_prob)
 
@@ -121,20 +128,29 @@ with tf.name_scope('D_loss'):
     # G_sample = tf.Print(G_sample,data=[G_sample[:1,64:128]],summarize=20,message="sample:")
     D_real, D_logit_real = discriminator(X)
     D_fake, D_logit_fake = discriminator(G_sample)
-    D_real_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=Y, logits=D_real[:, :-1]))
+    D_real_loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=Y, logits=D_logit_real[:, :-1]))
     D_loss = tf.reduce_mean(D_real_loss + (1. - D_fake[:, -1:]))
-    # D_loss = tf.Print(D_loss, data=[D_loss], summarize=20, message="D:")
+    # D_loss = tf.Print(D_loss, data=[D_real], summarize=20, message="D_real:")
+    # D_loss = tf.Print(D_loss, data=[D_fake], summarize=20, message="D_fake:")
+    tf.summary.scalar("D_loss", D_loss)
+    tf.summary.histogram("D_logit_fake", D_logit_fake)
+    tf.summary.histogram("Y", Y)
+    tf.summary.histogram("D_real", D_real[:, :-1])
+    # D_loss = tf.Print(D_loss, data=[Y], summarize=20, message="Y")
+    # D_loss = tf.Print(D_loss, data=[D_real], summarize=20, message="D_real")
+    # D_loss = tf.Print(D_loss,data=[D_loss],summarize=20)
 
 with tf.name_scope('G_loss'):
     G_loss = tf.reduce_mean(D_fake[:, -1:])
-    G_loss = tf.Print(G_loss, data=[G_loss], summarize=20, message="G:")
+    # G_loss = tf.Print(G_loss, data=[G_loss], summarize=20, message="G:")
+    tf.summary.scalar("G_loss", G_loss)
 
 # Only update D(X)'s parameters, so var_list = theta_D
 with tf.name_scope('D_train'):
-    D_solver = tf.train.AdamOptimizer(learning_rate=0.001).minimize(D_loss, var_list=theta_D)
+    D_solver = tf.train.AdamOptimizer(learning_rate=0.1).minimize(D_loss, var_list=theta_D)
 # Only update G(X)'s parameters, so var_list = theta_G
 with tf.name_scope('G_train'):
-    G_solver = tf.train.AdamOptimizer(learning_rate=10).minimize(G_loss, var_list=theta_G)
+    G_solver = tf.train.AdamOptimizer(learning_rate=0.1).minimize(G_loss, var_list=theta_G)
 
 i = 0
 dictionary, word_embeddings = read_data()
@@ -144,13 +160,22 @@ batch_manager = BatchManager(emails)
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
-for it in range(200):
+merged = tf.summary.merge_all()
+writer = tf.summary.FileWriter("log/spam-filter")
+
+for it in range(1000):
     x_mb, y_mb = batch_manager.next_batch(batch_size)
-    _, D_loss_curr = sess.run([D_solver, D_loss], feed_dict={X: x_mb, Y: y_mb, Z: sample_Z(batch_size, Z_dim)})
+    _, D_loss_curr, summary = sess.run([D_solver, D_loss, merged],
+                                       feed_dict={X: x_mb, Y: y_mb, Z: sample_Z(batch_size, Z_dim)})
     _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: sample_Z(batch_size, Z_dim)})
 
-    # if it % 100 == 0:
-    #     print('Iter: {}'.format(it))
-    #     print('D loss: {:.4}'.format(D_loss_curr))
-    #     print('G_loss: {:.4}'.format(G_loss_curr))
-    #     print()
+    # log
+    writer.add_summary(summary, it)
+
+
+
+    if it % 1 == 0:
+        print('Iter: {}'.format(it))
+        print('D loss: {:.4}'.format(D_loss_curr))
+        print('G_loss: {:.4}'.format(G_loss_curr))
+        print()
