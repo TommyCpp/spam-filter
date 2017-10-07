@@ -22,9 +22,9 @@ class BatchManager:
         self.label = list()
         for email in self.emails:
             if email.is_spam:
-                self.label.append([0, 1,0])
+                self.label.append([0, 1, 0])
             else:
-                self.label.append([1, 0,0])
+                self.label.append([1, 0, 0])
 
     def next_batch(self, batch_size):
         if batch_size + self.index >= len(self.content):
@@ -73,7 +73,7 @@ def sample_Z(m, n):
 # Discriminator Net
 
 
-with tf.name_scope('input'):
+with tf.name_scope('D_input'):
     X = tf.placeholder(tf.float32, shape=[batch_size, X_dim], name='X')
     Y = tf.placeholder(tf.float32, shape=[batch_size, 3], name="Y")
 
@@ -87,7 +87,7 @@ with tf.name_scope('discriminator'):
 theta_D = [D_W1, D_W2, D_b1, D_b2]
 
 # Generator Net
-with tf.name_scope('input'):
+with tf.name_scope('G_input'):
     Z = tf.placeholder(tf.float32, shape=[batch_size, Z_dim], name='Z')
 
 with tf.name_scope('generator'):
@@ -162,15 +162,17 @@ sess.run(tf.global_variables_initializer())
 
 merged = tf.summary.merge_all()
 writer = tf.summary.FileWriter("log/spam-filter")
+graph_writer = tf.summary.FileWriter("log/spam-filter", sess.graph)
 
-for it in range(10000):
-    x_mb, y_mb = batch_manager.next_batch(batch_size)
-    _, D_loss_curr, summary = sess.run([D_solver, D_loss, merged],
-                                       feed_dict={X: x_mb, Y: y_mb, Z: sample_Z(batch_size, Z_dim)})
-    _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: sample_Z(batch_size, Z_dim)})
 
-    # log
-    writer.add_summary(summary, it)
+# for it in range(10000):
+#     x_mb, y_mb = batch_manager.next_batch(batch_size)
+#     _, D_loss_curr, summary = sess.run([D_solver, D_loss, merged],
+#                                        feed_dict={X: x_mb, Y: y_mb, Z: sample_Z(batch_size, Z_dim)})
+#     _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: sample_Z(batch_size, Z_dim)})
+#
+#     # log
+#     writer.add_summary(summary, it)
 
 
 
