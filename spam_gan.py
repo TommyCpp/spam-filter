@@ -5,6 +5,8 @@ import tensorflow as tf
 
 SOURCE_MSG = "./data/source/msg.txt"
 SOURCE_SPAM = "./data/source/spam.txt"
+TEST_MSG = "./data/source/test/msg.txt"
+TEST_SPAM = "./data/source/test/spam.txt"
 embedding_size = 32
 N_WORDS = 8
 
@@ -152,10 +154,22 @@ with tf.name_scope('D_train'):
 with tf.name_scope('G_train'):
     G_solver = tf.train.AdamOptimizer(learning_rate=0.001).minimize(G_loss, var_list=theta_G)
 
+with tf.name_scope('evaluate'):
+    X_eval = tf.placeholder(tf.float32, shape=[batch_size, X_dim], name='X_eval')
+    Y_eval = tf.placeholder(tf.float32, shape=[batch_size, 3], name="Y_eval")
+    D_result, D_logit_result = discriminator(X_eval)
+    result = tf.argmax(D_result, 1)  # 1 for ham,0 for spam
+    # result = tf.Print(result,data=[result],summarize=20)
+    expect = tf.cast(Y_eval[:, 1], dtype=tf.int64)
+    evaluator = tf.reduce_sum(tf.abs(result - expect)) / float(batch_size)
+    # evaluator = tf.Print(evaluator,data=[evaluator],summarize=20)
+
 i = 0
 dictionary, word_embeddings = read_data()
-emails = extract_email(dictionary, word_embeddings, N_WORDS)
+emails = extract_email(dictionary, word_embeddings, N_WORDS, SOURCE_MSG, SOURCE_SPAM)
+test_emails = extract_email(dictionary, word_embeddings, N_WORDS, TEST_MSG, TEST_SPAM)
 batch_manager = BatchManager(emails)
+test_batch_manager = BatchManager(test_emails)
 
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
@@ -164,20 +178,26 @@ merged = tf.summary.merge_all()
 writer = tf.summary.FileWriter("log/spam-filter")
 graph_writer = tf.summary.FileWriter("log/spam-filter", sess.graph)
 
+evaluator_result = []
 
-# for it in range(10000):
-#     x_mb, y_mb = batch_manager.next_batch(batch_size)
-#     _, D_loss_curr, summary = sess.run([D_solver, D_loss, merged],
-#                                        feed_dict={X: x_mb, Y: y_mb, Z: sample_Z(batch_size, Z_dim)})
-#     _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: sample_Z(batch_size, Z_dim)})
-#
-#     # log
-#     writer.add_summary(summary, it)
+for it in range(5000):
+    x_mb, y_mb = batch_manager.next_batch(batch_size)
+    _, D_loss_curr, summary = sess.run([D_solver, D_loss, merged],
+                                       feed_dict={X: x_mb, Y: y_mb, Z: sample_Z(batch_size, Z_dim)})
+    _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={Z: sample_Z(batch_size, Z_dim)})
+
+    # # log
+    # writer.add_summary(summary, it)
 
 
 
-    # if it % 1 == 0:
-    #     print('Iter: {}'.format(it))
-    #     print('D loss: {:.4}'.format(D_loss_curr))
-    #     print('G_loss: {:.4}'.format(G_loss_curr))
-    #     print()
+    if it % 1000 == 0:
+        # print('Iter: {}'.format(it))
+        # print('D loss: {:.4}'.format(D_loss_curr))
+        # print('G_loss: {:.4}'.format(G_loss_curr))
+        # print()
+        x_mb, y_mb = test_batch_manager.next_batch(batch_size)
+        evaluator_curr = sess.run([evaluator], feed_dict={X_eval: x_mb, Y_eval: y_mb})
+        evaluator_result.append(evaluator_curr[0])
+
+print(sum(evaluator_result) / len(evaluator_result))

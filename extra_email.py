@@ -48,15 +48,15 @@ SOURCE_MSG = "./data/source/msg.txt"
 SOURCE_SPAM = "./data/source/spam.txt"
 
 
-def extract_email(dictionary, word_embeddings, n_words) -> list:
+def extract_email(dictionary, word_embeddings, n_words,source_msg,source_spam) -> list:
     result = []
-    with open(SOURCE_MSG) as f:
+    with open(source_msg) as f:
         lines = f.readlines()
         for i in range(0, len(lines), 2):
             result.append(
                 Email(lines[i], lines[i + 1], email2vec(lines[i + 1], dictionary, word_embeddings, n_words), 0))
 
-    with open(SOURCE_SPAM) as f:
+    with open(source_spam) as f:
         lines = f.readlines()
         for i in range(0, len(lines), 2):
             result.append(
@@ -78,5 +78,5 @@ N_WORDS = 16
 
 dictionary, word_embeddings = read_data()
 
-emails = extract_email(dictionary, word_embeddings, N_WORDS)
+emails = extract_email(dictionary, word_embeddings, N_WORDS,SOURCE_MSG,SOURCE_SPAM)
 
